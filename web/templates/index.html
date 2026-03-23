@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 课堂专注度分析系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#f0f9ff', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px rgba(14, 165, 233, 0.05);
+        }
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #0ea5e9, transparent);
+            animation: scan 3s linear infinite;
+            opacity: 0.6;
+        }
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden text-slate-800 font-sans flex flex-col">
+
+    <header class="h-16 glass-panel z-10 flex items-center justify-between px-6 border-b border-slate-200">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center">
+                <i class="ph ph-brain text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold text-slate-800 tracking-wide">临境感知 <span class="text-brand-500 font-normal">课堂状态边缘计算与智能反馈系统</span></h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <span class="relative flex h-3 w-3">
+                  <span id="status-dot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span id="status-dot-static" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span id="system-status">系统初始化中...</span>
+            </div>
+            <button id="btn-stop-monitor" class="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 rounded-full hover:bg-rose-100 hover:text-rose-700 transition shadow-sm border border-rose-100 font-medium text-sm">
+                <i class="ph ph-stop-circle text-xl"></i>
+                <span>结束监控</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex gap-6 p-6 overflow-hidden">
+
+        <section class="flex-[3] flex flex-col gap-6 min-w-0">
+            <div class="grid grid-cols-4 gap-4">
+                <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">当前综合专注度</p>
+                        <p class="text-3xl font-bold text-brand-600 mt-1"><span id="focus-rate">0</span><span class="text-lg text-slate-400">%</span></p>
+                    </div>
+                    <i class="ph flex ph-chart-line-up text-3xl text-brand-500 bg-brand-50 p-2 rounded-lg"></i>
+                </div>
+                <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">出勤人数</p>
+                        <p class="text-3xl font-bold text-slate-800 mt-1"><span id="total-students">0</span><span class="text-lg text-slate-400">人</span></p>
+                    </div>
+                    <i class="ph ph-users text-3xl text-indigo-500 bg-indigo-50 p-2 rounded-lg"></i>
+                </div>
+                <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">疑似睡觉预警</p>
+                        <p class="text-3xl font-bold text-rose-500 mt-1"><span id="warning-count">0</span><span class="text-lg text-slate-400">人</span></p>
+                    </div>
+                    <i class="ph ph-warning text-3xl text-rose-500 bg-rose-50 p-2 rounded-lg"></i>
+                </div>
+                <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">活跃互动</p>
+                        <p class="text-3xl font-bold text-emerald-500 mt-1"><span id="active-count">0</span><span class="text-lg text-slate-400">人</span></p>
+                    </div>
+                    <i class="ph ph-hand-raising text-3xl text-emerald-500 bg-emerald-50 p-2 rounded-lg"></i>
+                </div>
+            </div>
+
+            <div class="glass-panel flex-1 min-h-0 rounded-2xl p-2 relative overflow-hidden shadow-lg border-brand-100 flex flex-col">
+                <div class="flex justify-between items-center px-3 pb-2 pt-1 border-b border-slate-100 mb-2">
+                    <h2 class="font-semibold text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-camera text-brand-500"></i> 实时 AI 分析画面
+                    </h2>
+                    <span id="fps-display" class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 font-mono">-- FPS | YOLOV11S-POSE</span>
+                </div>
+                <div class="relative w-full flex-1 min-h-0 bg-slate-900 rounded-xl overflow-hidden group">
+                    <div class="scan-line"></div>
+                    <img id="video-feed" src="/video_feed" class="w-full h-full object-contain" alt="Video Stream">
+
+                    <div class="absolute inset-0 pointer-events-none p-8 flex items-end">
+                       <div id="stream-status" class="bg-black/50 backdrop-blur-md text-white text-xs px-3 py-2 rounded-lg font-mono">
+                           Status: Connecting...
+                       </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="flex-[1] min-w-[320px] flex flex-col gap-6">
+            <div class="glass-panel rounded-2xl p-5 shadow-sm flex-[3] flex flex-col min-h-0">
+                <h3 class="font-semibold text-slate-700 mb-4 flex items-center gap-2 shrink-0"><i class="ph ph-chart-donut"></i> 实时状态分布</h3>
+                <div class="relative flex-1 min-h-0 w-full">
+                    <canvas id="statusChart" class="absolute inset-0 w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-5 shadow-sm flex-[3] flex flex-col min-h-0">
+                <h3 class="font-semibold text-slate-700 mb-3 flex items-center gap-2 shrink-0"><i class="ph ph-trend-up"></i> 课堂专注度趋势</h3>
+                <div class="relative flex-1 min-h-[120px] w-full">
+                    <canvas id="trendChart" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-5 shadow-sm flex-[4] flex flex-col min-h-0">
+                <h3 class="font-semibold text-slate-700 mb-4 flex items-center gap-2 shrink-0"><i class="ph ph-list-dashes"></i> 预警与事件流</h3>
+                <div id="event-log" class="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin min-h-0">
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <div id="report-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden transform scale-95 transition-all duration-300" id="report-content">
+            <div class="bg-gradient-to-r from-brand-500 to-brand-600 p-6 text-white text-center relative">
+                <i class="ph ph-clipboard-text text-5xl mb-2 opacity-90"></i>
+                <h2 class="text-xl font-bold tracking-wider">课堂监控报告</h2>
+                <p class="text-brand-100 text-sm mt-1">本次系统已安全结束运行</p>
+            </div>
+            <div class="p-6 space-y-5">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <span class="text-slate-500 flex items-center gap-2 font-medium"><i class="ph ph-users text-lg text-indigo-500"></i> 最高出勤人数</span>
+                    <span class="text-xl font-bold text-slate-800" id="report-attendance">0 人</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <span class="text-slate-500 flex items-center gap-2 font-medium"><i class="ph ph-target text-lg text-emerald-500"></i> 平均专注度</span>
+                    <span class="text-xl font-bold text-brand-600" id="report-avg-focus">0%</span>
+                </div>
+                <div>
+                    <span class="text-slate-500 flex items-center gap-2 mb-2 font-medium"><i class="ph ph-warning-circle text-lg text-rose-500"></i> 专注度低于60%的时刻</span>
+                    <div id="report-low-focus" class="bg-slate-50 border border-slate-100 text-sm p-3 rounded-xl max-h-32 overflow-y-auto font-mono flex flex-wrap gap-2">
+                        </div>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 text-center text-xs text-slate-400 border-t border-slate-100">
+                服务已关闭，您可以直接关闭当前浏览器标签页
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let statusChart, trendChart;
+        let ws = null;
+        let reconnectTimer = null;
+        let trendLabels = [];
+        let trendData = [];
+        let lastTrendUpdate = 0;
+        const TREND_UPDATE_INTERVAL = 5000;
+
+        function initCharts() {
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['专心听课', '低头状态', '开小差', '疑似睡觉'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#f43f5e'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: {size: 11} } } }
+                }
+            });
+
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '平均专注度',
+                        data: [],
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#0ea5e9'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: false, min: 50, max: 100, grid: { borderDash: [4, 4], color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                document.getElementById('status-dot').classList.remove('bg-red-400');
+                document.getElementById('status-dot').classList.add('bg-emerald-400');
+                document.getElementById('status-dot-static').classList.remove('bg-red-500');
+                document.getElementById('status-dot-static').classList.add('bg-emerald-500');
+                document.getElementById('system-status').textContent = '系统运行正常';
+
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateDashboard(data);
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                }
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                document.getElementById('status-dot').classList.remove('bg-emerald-400');
+                document.getElementById('status-dot').classList.add('bg-red-400');
+                document.getElementById('status-dot-static').classList.remove('bg-emerald-500');
+                document.getElementById('status-dot-static').classList.add('bg-red-500');
+                document.getElementById('system-status').textContent = '连接断开，正在重连...';
+
+                reconnectTimer = setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function updateDashboard(data) {
+            if (data.focus_rate !== undefined) {
+                document.getElementById('focus-rate').textContent = Math.round(data.focus_rate);
+            }
+            if (data.total_students !== undefined) {
+                document.getElementById('total-students').textContent = data.total_students;
+            }
+            if (data.warning_count !== undefined) {
+                document.getElementById('warning-count').textContent = data.warning_count;
+            }
+            if (data.active_count !== undefined) {
+                document.getElementById('active-count').textContent = data.active_count;
+            }
+            if (data.fps !== undefined) {
+                document.getElementById('fps-display').textContent = `${data.fps.toFixed(1)} FPS | YOLOV11S-POSE`;
+            }
+            if (data.stream_status !== undefined) {
+                document.getElementById('stream-status').textContent = data.stream_status;
+            }
+
+            if (data.status_distribution) {
+                statusChart.data.datasets[0].data = [
+                    data.status_distribution.focused_listening || 0,
+                    (data.status_distribution.focused_reading || 0) + (data.status_distribution.not_focused_head_down || 0) + (data.status_distribution.normal || 0),
+                    data.status_distribution.not_focused_looking || 0,
+                    data.status_distribution.not_focused_sleeping || 0
+                ];
+                statusChart.update();
+            }
+
+            if (data.focus_rate !== undefined) {
+                const now = Date.now();
+                if (now - lastTrendUpdate >= TREND_UPDATE_INTERVAL) {
+                    lastTrendUpdate = now;
+                    const date = new Date();
+                    const timeLabel = date.getHours().toString().padStart(2, '0') + ':' +
+                                      date.getMinutes().toString().padStart(2, '0') + ':' +
+                                      date.getSeconds().toString().padStart(2, '0');
+
+                    trendLabels.push(timeLabel);
+                    trendData.push(data.focus_rate);
+
+                    if (trendLabels.length > 10) {
+                        trendLabels.shift();
+                        trendData.shift();
+                    }
+
+                    trendChart.data.labels = trendLabels;
+                    trendChart.data.datasets[0].data = trendData;
+                    trendChart.update();
+                }
+            }
+
+            if (data.events && data.events.length > 0) {
+                const eventLog = document.getElementById('event-log');
+                eventLog.innerHTML = '';
+
+                data.events.forEach(event => {
+                    const eventDiv = document.createElement('div');
+                    const borderColor = event.type === 'warning' ? 'border-rose-400' :
+                                       event.type === 'info' ? 'border-emerald-400' : 'border-amber-400';
+
+                    eventDiv.className = `flex gap-3 items-start border-l-2 ${borderColor} pl-3`;
+                    eventDiv.innerHTML = `
+                        <span class="text-xs text-slate-400 font-mono mt-0.5">${event.time}</span>
+                        <div>
+                            <p class="text-sm font-medium text-slate-700">${event.title}</p>
+                            <p class="text-xs text-slate-500">${event.description}</p>
+                        </div>
+                    `;
+                    eventLog.appendChild(eventDiv);
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            connectWebSocket();
+
+            const videoImg = document.getElementById('video-feed');
+            videoImg.onerror = function() {
+                document.getElementById('stream-status').textContent = 'Status: Video stream disconnected';
+            };
+            videoImg.onload = function() {
+                document.getElementById('stream-status').textContent = 'Status: Processing targets...';
+            };
+        });
+
+        document.getElementById('btn-stop-monitor').addEventListener('click', async () => {
+            if(!confirm('确定要结束本次课堂监控并关闭系统吗？')) return;
+            
+            const btn = document.getElementById('btn-stop-monitor');
+            btn.innerHTML = `<i class="ph ph-spinner animate-spin text-xl"></i><span>正在关闭...</span>`;
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/stop', { method: 'POST' });
+                const data = await response.json();
+                
+                if (reconnectTimer) clearTimeout(reconnectTimer);
+                if (ws) ws.close();
+                
+                document.getElementById('report-attendance').textContent = `${data.attendance} 人`;
+                document.getElementById('report-avg-focus').textContent = `${data.avg_focus}%`;
+                
+                const lowFocusContainer = document.getElementById('report-low-focus');
+                if (data.low_focus_times && data.low_focus_times.length > 0) {
+                    lowFocusContainer.innerHTML = data.low_focus_times.map(t =>
+                        `<span class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded-md border border-rose-100">${t}</span>`
+                    ).join('');
+                } else {
+                    lowFocusContainer.innerHTML = '<span class="text-emerald-600 w-full text-center py-1">表现良好，无低专注时刻 🎉</span>';
+                    lowFocusContainer.classList.replace('bg-slate-50', 'bg-emerald-50/50');
+                }
+                
+                document.getElementById('video-feed').src = '';
+                document.getElementById('stream-status').textContent = 'System Offline';
+                
+                const modal = document.getElementById('report-modal');
+                const content = document.getElementById('report-content');
+                modal.classList.remove('hidden');
+                
+                void modal.offsetWidth;
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                
+            } catch (error) {
+                alert('系统关闭请求发送失败，但连接可能已断开: ' + error);
+            }
+        });
+    </script>
+</body>
+</html>
