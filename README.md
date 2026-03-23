@@ -187,9 +187,9 @@ python focus_monitor.py
 |------|------|---------|
 | `yolo11s-pose.pt` | YOLO11 姿态估计模型 | ✓ |
 | `yolo11s-pose_openvino_model/` | OpenVINO 导出模型 | ✓ (首次运行自动导出) |
-| `sixdrepnet_openvino.xml/bin` | SixDRepNet 头部姿态模型 | 需手动准备 |
+| `sixdrepnet` | SixDRepNet 头部姿态模型 | ✓ (pip 安装) |
 
-> **注意**: SixDRepNet 模型需要手动转换。如果没有该模型，头部姿态估计功能将被禁用，但程序仍可运行。
+> **注意**: SixDRepNet 通过 `pip install sixdrepnet` 自动安装，模型权重会在首次使用时自动下载。如需 OpenVINO 加速版本，可参考 `download_models.py` 中的说明手动转换。
 
 ### 运行命令行版本
 

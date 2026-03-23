@@ -5,37 +5,12 @@
 
 import os
 import sys
-import urllib.request
-import zipfile
-import shutil
+import subprocess
 from pathlib import Path
 
 
 def get_project_root():
     return Path(__file__).parent.resolve()
-
-
-def download_file(url: str, save_path: str, desc: str = None):
-    if desc:
-        print(f"正在下载: {desc}")
-    print(f"URL: {url}")
-    print(f"保存到: {save_path}")
-    
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    
-    def progress_hook(count, block_size, total_size):
-        percent = int(count * block_size * 100 / total_size)
-        percent = min(percent, 100)
-        sys.stdout.write(f"\r下载进度: {percent}%")
-        sys.stdout.flush()
-    
-    try:
-        urllib.request.urlretrieve(url, save_path, progress_hook)
-        print("\n下载完成!")
-        return True
-    except Exception as e:
-        print(f"\n下载失败: {e}")
-        return False
 
 
 def download_yolo_model():
@@ -51,7 +26,6 @@ def download_yolo_model():
         return True
     
     print("正在通过 Ultralytics 下载 YOLO11-Pose 模型...")
-    print("(首次运行时会自动下载，或手动下载)")
     
     try:
         from ultralytics import YOLO
@@ -69,7 +43,7 @@ def download_yolo_model():
 
 def download_sixdrepnet_model():
     print("\n" + "=" * 50)
-    print("下载 SixDRepNet OpenVINO 模型")
+    print("下载 SixDRepNet 头部姿态模型")
     print("=" * 50)
     
     root = get_project_root()
@@ -77,26 +51,45 @@ def download_sixdrepnet_model():
     bin_path = root / "sixdrepnet_openvino.bin"
     
     if xml_path.exists() and bin_path.exists():
-        print(f"模型已存在:")
+        print(f"OpenVINO 模型已存在:")
         print(f"  - {xml_path}")
         print(f"  - {bin_path}")
         return True
     
-    print("SixDRepNet OpenVINO 模型需要手动准备:")
-    print("\n方法一: 从原始模型转换")
-    print("1. 克隆 SixDRepNet 仓库:")
-    print("   git clone https://github.com/thohemp/6DRepNet")
-    print("2. 下载预训练权重:")
-    print("   https://drive.google.com/drive/folders/1iD3wJXqH6k8Gg5JZz5cQz8wJm8s9tNvO")
-    print("3. 使用 OpenVINO 转换模型:")
-    print("   pip install openvino-dev")
-    print("   mo --input_model sixdrepnet.onnx --output_dir .")
-    
-    print("\n方法二: 使用 PyTorch 模型 (备选方案)")
-    print("项目代码已内置回退机制，如果没有 OpenVINO 模型，")
-    print("会尝试使用 PyTorch 模型进行推理。")
-    
-    return False
+    print("正在安装 SixDRepNet 包 (pip install sixdrepnet)...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "sixdrepnet", "-q"])
+        print("SixDRepNet 包安装成功!")
+        
+        print("\n正在下载模型权重 (首次使用会自动下载)...")
+        from sixdrepnet import SixDRepNet
+        model = SixDRepNet()
+        print("SixDRepNet 模型准备完成!")
+        
+        print("\n" + "-" * 50)
+        print("注意: 当前使用 PyTorch 版本的 SixDRepNet")
+        print("如需 OpenVINO 加速版本，请按以下步骤操作:")
+        print("-" * 50)
+        print("\n方法一: 从源码转换 (推荐)")
+        print("  1. git clone https://github.com/thohemp/6DRepNet.git")
+        print("  2. cd 6DRepNet")
+        print("  3. pip install -r requirements.txt")
+        print("  4. 下载预训练权重: 6DRepNet_300W_LP_AFLW2000.pth")
+        print("     https://drive.google.com/drive/folders/1V1pCV0BEW3mD-B9MogGrz_P91UhTtuE_")
+        print("  5. 转换为 ONNX: python export_onnx.py")
+        print("  6. 转换为 OpenVINO: mo --input_model sixdrepnet.onnx")
+        print("  7. 将生成的 .xml 和 .bin 文件复制到项目根目录")
+        
+        print("\n方法二: 直接使用 PyTorch 版本")
+        print("  程序会自动回退到 PyTorch 推理，无需额外操作")
+        
+        return True
+        
+    except Exception as e:
+        print(f"安装失败: {e}")
+        print("\n请手动安装:")
+        print("  pip install sixdrepnet")
+        return False
 
 
 def check_openvino_model():
@@ -138,6 +131,10 @@ def check_dependencies():
         ("flask", "Web 框架"),
     ]
     
+    optional = [
+        ("sixdrepnet", "头部姿态估计 (可选)"),
+    ]
+    
     missing = []
     for package, desc in required:
         try:
@@ -150,8 +147,15 @@ def check_dependencies():
             print(f"  ✗ {package} ({desc}) - 未安装")
             missing.append(package)
     
+    for package, desc in optional:
+        try:
+            __import__(package)
+            print(f"  ✓ {package} ({desc})")
+        except ImportError:
+            print(f"  ○ {package} ({desc}) - 未安装，将自动安装")
+    
     if missing:
-        print(f"\n缺少依赖包: {', '.join(missing)}")
+        print(f"\n缺少必需依赖包: {', '.join(missing)}")
         print("请运行: pip install -r requirements.txt")
         return False
     
@@ -179,10 +183,9 @@ def main():
     print("\n模型文件位置:")
     print(f"  YOLO11-Pose: {root / 'yolo11s-pose.pt'}")
     print(f"  OpenVINO:    {root / 'yolo11s-pose_openvino_model/'}")
-    print(f"  SixDRepNet:  {root / 'sixdrepnet_openvino.xml'}")
+    print(f"  SixDRepNet:  pip 包形式安装 (或 OpenVINO 版本)")
     
-    print("\n如果模型文件缺失，请按照上述说明手动下载。")
-    print("准备就绪后，运行: python focus_monitor.py")
+    print("\n准备就绪后，运行: python focus_monitor.py")
 
 
 if __name__ == "__main__":
