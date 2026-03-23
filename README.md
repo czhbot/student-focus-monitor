@@ -132,7 +132,7 @@ def _preprocess_head(self, head_img):
 ## 项目结构
 
 ```
-├── stage3_focus_tracking.py    # 核心检测模块（命令行版本）
+├── focus_monitor.py            # 核心检测模块（命令行版本）
 ├── web/
 │   ├── app.py                  # Web 服务端
 │   └── templates/
@@ -162,7 +162,7 @@ pip install -r requirements.txt
 ### 运行命令行版本
 
 ```bash
-python stage3_focus_tracking.py
+python focus_monitor.py
 ```
 
 **快捷键**:

@@ -23,7 +23,7 @@ from simple_websocket import Server, ConnectionClosed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from stage3_focus_tracking import (
+from focus_monitor import (
     OpenVINOStudentDetector,
     HeadPoseEstimator,
     StudentTracker,
