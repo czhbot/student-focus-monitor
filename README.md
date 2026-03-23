@@ -133,6 +133,7 @@ def _preprocess_head(self, head_img):
 
 ```
 ├── focus_monitor.py            # 核心检测模块（命令行版本）
+├── download_models.py          # 模型下载脚本
 ├── web/
 │   ├── app.py                  # Web 服务端
 │   └── templates/
@@ -151,13 +152,44 @@ def _preprocess_head(self, head_img):
 
 - Python 3.8+
 - OpenVINO 2023.0+
+- 摄像头设备
 - CUDA (可选，用于 GPU 加速)
 
-### 安装依赖
+### 快速开始
 
 ```bash
+# 1. 克隆仓库
+git clone https://github.com/czhbot/student-focus-monitor.git
+cd student-focus-monitor
+
+# 2. 创建虚拟环境 (推荐)
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+
+# 3. 安装依赖
 pip install -r requirements.txt
+
+# 4. 下载模型
+python download_models.py
+
+# 5. 运行程序
+python focus_monitor.py
 ```
+
+### 模型文件说明
+
+项目需要以下模型文件，`download_models.py` 会自动处理：
+
+| 模型 | 说明 | 自动下载 |
+|------|------|---------|
+| `yolo11s-pose.pt` | YOLO11 姿态估计模型 | ✓ |
+| `yolo11s-pose_openvino_model/` | OpenVINO 导出模型 | ✓ (首次运行自动导出) |
+| `sixdrepnet_openvino.xml/bin` | SixDRepNet 头部姿态模型 | 需手动准备 |
+
+> **注意**: SixDRepNet 模型需要手动转换。如果没有该模型，头部姿态估计功能将被禁用，但程序仍可运行。
 
 ### 运行命令行版本
 
