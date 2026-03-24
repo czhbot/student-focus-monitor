@@ -136,6 +136,8 @@ def _preprocess_head(self, head_img):
 ├── download_models.py          # 模型下载脚本
 ├── web/
 │   ├── app.py                  # Web 服务端
+│   ├── static/
+│   │   └── tailwind.js         # Tailwind CSS 本地文件
 │   └── templates/
 │       └── index.html          # Web 前端界面
 ├── yolo11s-pose.pt             # YOLO11 姿态估计模型
@@ -220,6 +222,9 @@ python app.py
 - **头部姿态**: SixDRepNet
 - **Web 框架**: Flask + WebSocket
 - **视频流**: MJPEG
+- **前端样式**: Tailwind CSS (本地)
+- **图表库**: Chart.js (BootCDN)
+- **图标库**: Font Awesome 5 (BootCDN)
 
 ## 依赖版本
 
@@ -228,9 +233,14 @@ ultralytics>=8.0.0
 opencv-python>=4.8.0
 numpy>=1.24.0
 torch>=2.0.0
+torchvision>=0.15.0
+Pillow>=9.0.0
+timm>=0.9.0
 openvino>=2023.0.0
 flask>=2.3.0
 flask-sock>=0.6.0
+simple-websocket>=1.0.0,<2.0.0
+sixdrepnet
 ```
 
 ## 许可证
