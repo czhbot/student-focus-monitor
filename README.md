@@ -8,6 +8,7 @@
 - 基于 ByteTrack 的多目标追踪，为每个学生分配唯一 ID
 - 头部姿态估计（Pitch/Yaw/Roll）判断视线方向
 - Web 端实时监控界面，支持 MJPEG 视频流和 WebSocket 数据推送
+- 移动端 App（uni-app），支持配置服务器、实时监控数据展示
 - 课堂专注度统计与报告生成
 
 ## 系统架构
@@ -16,13 +17,36 @@
 摄像头 → 帧队列 → YOLO11-Pose检测 → ByteTrack追踪 → 头部姿态估计 → 专注度评估 → 状态缓存 → 结果展示
 ```
 
+## 目录结构
+
+```
+├── app/                          # 移动端 App (uni-app)
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── index/           # 监控主页
+│   │   │   └── config/          # 服务器配置页
+│   │   ├── App.vue              # 应用入口
+│   │   ├── main.js              # 主入口
+│   │   ├── pages.json           # 页面配置
+│   │   └── uni.scss             # 全局样式
+│   └── static/                  # 静态资源
+├── web/                         # Web 服务端
+│   ├── app.py                  # Flask Web 服务
+│   ├── static/                 # 静态资源
+│   └── templates/               # HTML 模板
+├── focus_monitor.py            # 核心检测模块
+├── download_models.py          # 模型下载脚本
+├── requirements.txt            # Python 依赖
+└── README.md
+```
+
 ## 核心优化策略
 
 ### 1. OpenVINO 推理加速
 
 - **模型格式**: FP16 半精度量化，减少模型体积和内存占用
 - **动态 Batch**: 支持动态批次推理，适配不同数量的检测目标
-- **多核 CPU 优化**: 
+- **多核 CPU 优化**:
   - 设置 `INFERENCE_NUM_THREADS` 充分利用多核 CPU
   - 使用 `AFFINITY: CORE` 绑定核心减少上下文切换
   - `PERFORMANCE_HINT: LATENCY` 优先低延迟模式
@@ -129,57 +153,68 @@ def _preprocess_head(self, head_img):
 | 东张西望 | \|Yaw\| > 45° | 视线偏离 |
 | 睡觉 | 长时间低头/趴桌 | 持续时间超过阈值 |
 
-## 项目结构
-
-```
-├── focus_monitor.py            # 核心检测模块（命令行版本）
-├── download_models.py          # 模型下载脚本
-├── web/
-│   ├── app.py                  # Web 服务端
-│   ├── static/
-│   │   └── tailwind.js         # Tailwind CSS 本地文件
-│   └── templates/
-│       └── index.html          # Web 前端界面
-├── yolo11s-pose.pt             # YOLO11 姿态估计模型
-├── yolo11s-pose_openvino_model/ # OpenVINO 导出模型
-├── sixdrepnet_openvino.xml     # SixDRepNet 模型
-├── sixdrepnet_openvino.bin     # SixDRepNet 权重
-├── requirements.txt            # 依赖列表
-└── README.md
-```
-
 ## 安装与运行
 
 ### 环境要求
 
+**后端 (Python)**
 - Python 3.8+
 - OpenVINO 2023.0+
 - 摄像头设备
 - CUDA (可选，用于 GPU 加速)
 
+**前端 (移动端 App)**
+- Node.js 18.x LTS 或 20.x LTS
+- HBuilderX (推荐) 或 VS Code + uni-app 插件
+
 ### 快速开始
 
+#### 1. 后端安装
+
 ```bash
-# 1. 克隆仓库
+# 克隆仓库
 git clone https://github.com/czhbot/student-focus-monitor.git
 cd student-focus-monitor
 
-# 2. 创建虚拟环境 (推荐)
+# 创建虚拟环境 (推荐)
 python -m venv venv
 # Windows
 venv\Scripts\activate
 # Linux/Mac
 source venv/bin/activate
 
-# 3. 安装依赖
+# 安装依赖
 pip install -r requirements.txt
 
-# 4. 下载模型
+# 下载模型
 python download_models.py
 
-# 5. 运行程序
-python focus_monitor.py
+# 运行后端服务
+cd web
+python app.py
 ```
+
+访问 `http://localhost:5000` 查看 Web 监控界面。
+
+#### 2. 移动端 App 安装
+
+```bash
+# 进入 app 目录
+cd app
+
+# 安装依赖
+npm install
+
+# 运行开发服务器
+npm run dev:h5
+```
+
+或使用 HBuilderX 打开 `app` 目录，选择运行到浏览器。
+
+**App 开发说明：**
+- 默认连接 `http://localhost:5000`
+- 可在"设置"页面修改服务器 IP 地址
+- 支持 H5、微信小程序、App 等多端运行
 
 ### 模型文件说明
 
@@ -216,6 +251,7 @@ python app.py
 
 ## 技术栈
 
+**后端**
 - **目标检测**: YOLO11-Pose (Ultralytics)
 - **推理引擎**: OpenVINO
 - **目标追踪**: ByteTrack
@@ -226,7 +262,14 @@ python app.py
 - **图表库**: Chart.js (BootCDN)
 - **图标库**: Font Awesome 5 (BootCDN)
 
+**移动端 App**
+- **框架**: uni-app (Vue 3)
+- **编译器**: Vite 5.x
+- **样式**: SCSS + 液态毛玻璃效果
+
 ## 依赖版本
+
+### Python 依赖
 
 ```
 ultralytics>=8.0.0
@@ -241,6 +284,17 @@ flask>=2.3.0
 flask-sock>=0.6.0
 simple-websocket>=1.0.0,<2.0.0
 sixdrepnet
+```
+
+### Node.js 依赖
+
+```json
+{
+  "@dcloudio/uni-app": "3.0.0-alpha-5000420260319001",
+  "vue": "3.4.21",
+  "vite": "5.2.8",
+  "typescript": "^5.4.5"
+}
 ```
 
 ## 许可证

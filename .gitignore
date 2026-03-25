@@ -54,3 +54,10 @@ Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Node.js
+node_modules/
+
+# UniApp CLI
+app/unpackage/
+app/package-lock.json
