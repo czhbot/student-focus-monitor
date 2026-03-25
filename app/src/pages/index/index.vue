@@ -1,0 +1,1062 @@
+<template>
+  <view class="app-container">
+    <view class="header">
+      <view class="status-indicator">
+        <view class="status-dot" :class="isConnected ? 'bg-emerald' : 'bg-rose'">
+          <view v-if="isConnected" class="status-dot-ping"></view>
+        </view>
+        <text class="status-text">{{ isConnected ? '系统运行正常' : '连接断开...' }}</text>
+      </view>
+      <button class="btn-stop liquid-glass-btn liquid-glass-btn-danger" @click="stopMonitor">
+        <text class="btn-text">结束监控</text>
+      </button>
+    </view>
+
+    <view class="grid-container">
+      <view class="data-card glass-panel">
+        <view class="card-content">
+          <text class="label">综合专注度</text>
+          <view class="value-row">
+            <text class="value text-brand">{{ stats.focus_rate }}</text>
+            <text class="unit">%</text>
+          </view>
+        </view>
+        <view class="card-icon bg-brand-light">
+          <text class="card-emoji">📊</text>
+        </view>
+      </view>
+
+      <view class="data-card glass-panel">
+        <view class="card-content">
+          <text class="label">出勤人数</text>
+          <view class="value-row">
+            <text class="value">{{ stats.total_students }}</text>
+            <text class="unit">人</text>
+          </view>
+        </view>
+        <view class="card-icon bg-indigo-light">
+          <text class="card-emoji">👥</text>
+        </view>
+      </view>
+
+      <view class="data-card glass-panel">
+        <view class="card-content">
+          <text class="label">疑似睡觉预警</text>
+          <view class="value-row">
+            <text class="value text-rose">{{ stats.warning_count }}</text>
+            <text class="unit">人</text>
+          </view>
+        </view>
+        <view class="card-icon bg-rose-light">
+          <text class="card-emoji">⚠️</text>
+        </view>
+      </view>
+
+      <view class="data-card glass-panel">
+        <view class="card-content">
+          <text class="label">活跃互动</text>
+          <view class="value-row">
+            <text class="value text-emerald">{{ stats.active_count }}</text>
+            <text class="unit">人</text>
+          </view>
+        </view>
+        <view class="card-icon bg-emerald-light">
+          <text class="card-emoji">🎯</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="chart-section glass-panel">
+      <view class="section-header">
+        <text class="section-title">实时状态分布</text>
+      </view>
+      <view class="chart-container">
+        <view class="ring-chart">
+          <view class="ring-center">
+            <text class="ring-value">{{ stats.total_students }}</text>
+            <text class="ring-label">总人数</text>
+          </view>
+          <view class="ring-segments">
+            <view 
+              v-for="(item, index) in chartSegments" 
+              :key="index"
+              class="ring-segment"
+              :style="getSegmentStyle(item, index)"
+            ></view>
+          </view>
+        </view>
+        <view class="chart-legend">
+          <view class="legend-item" v-for="(item, index) in chartSegments" :key="index">
+            <view class="legend-dot" :style="{ backgroundColor: item.color }"></view>
+            <text class="legend-label">{{ item.name }}</text>
+            <text class="legend-value">{{ item.value }}人</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="chart-section glass-panel">
+      <view class="section-header">
+        <text class="section-title">专注度趋势</text>
+      </view>
+      <view class="trend-chart">
+        <view class="trend-y-axis">
+          <text class="y-label">100</text>
+          <text class="y-label">80</text>
+          <text class="y-label">60</text>
+        </view>
+        <view class="trend-area">
+          <view class="trend-grid">
+            <view class="grid-line"></view>
+            <view class="grid-line"></view>
+            <view class="grid-line"></view>
+          </view>
+          <view class="trend-bars">
+            <view 
+              v-for="(item, index) in trendData" 
+              :key="index"
+              class="trend-bar-wrapper"
+            >
+              <view 
+                class="trend-bar" 
+                :style="{ height: getTrendHeight(item.value) + '%' }"
+                :class="{ 'bar-warning': item.value < 60 }"
+              ></view>
+              <text class="trend-time">{{ item.time }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="event-log-section glass-panel">
+      <view class="section-header">
+        <text class="section-title">预警与事件流</text>
+      </view>
+      <scroll-view scroll-y class="log-list" :scroll-top="scrollTop">
+        <view 
+          class="log-item" 
+          v-for="(item, index) in stats.events" 
+          :key="index"
+        >
+          <view class="log-line" :class="'log-line-' + item.type"></view>
+          <view class="log-content">
+            <view class="log-header">
+              <text class="log-time">{{ item.time }}</text>
+              <text class="log-title">{{ item.title }}</text>
+            </view>
+            <text class="log-desc">{{ item.description }}</text>
+          </view>
+        </view>
+        <view v-if="stats.events.length === 0" class="log-empty">
+          <text class="empty-text">暂无事件记录</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="bottom-tab-bar">
+      <view class="tab-item active">
+        <text class="tab-text">监控</text>
+      </view>
+      <view class="tab-item" @click="showServerConfig">
+        <text class="tab-text">配置</text>
+      </view>
+    </view>
+
+    <view class="report-modal" v-if="showReport" @click="closeReport">
+      <view class="report-content" @click.stop>
+        <view class="report-header">
+          <text class="report-icon">📊</text>
+          <text class="report-title">课堂监控报告</text>
+          <text class="report-subtitle">本次系统已安全结束运行</text>
+        </view>
+        <view class="report-body">
+          <view class="report-item">
+            <view class="report-item-left">
+              <text class="report-item-icon">👥</text>
+              <text class="report-item-label">最高出勤人数</text>
+            </view>
+            <text class="report-item-value">{{ reportData.attendance }} 人</text>
+          </view>
+          <view class="report-item">
+            <view class="report-item-left">
+              <text class="report-item-icon">🎯</text>
+              <text class="report-item-label">平均专注度</text>
+            </view>
+            <text class="report-item-value text-brand">{{ reportData.avg_focus }}%</text>
+          </view>
+          <view class="report-item column">
+            <view class="report-item-left">
+              <text class="report-item-icon">⚠️</text>
+              <text class="report-item-label">专注度低于60%的时刻</text>
+            </view>
+            <view class="low-focus-times">
+              <view 
+                v-for="(time, index) in reportData.low_focus_times" 
+                :key="index"
+                class="time-tag"
+              >
+                <text>{{ time }}</text>
+              </view>
+              <view v-if="reportData.low_focus_times.length === 0" class="no-warning">
+                <text>表现良好，无低专注时刻 🎉</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view class="report-footer">
+          <text class="footer-text">服务已关闭，您可以关闭当前应用</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
+
+const isConnected = ref(false)
+const showReport = ref(false)
+const scrollTop = ref(0)
+let socketTask = null
+let reconnectTimer = null
+let trendTimer = null
+
+const serverConfig = reactive({
+  ip: typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1',
+  port: '5000'
+})
+
+const stats = reactive({
+  focus_rate: 0,
+  total_students: 0,
+  warning_count: 0,
+  active_count: 0,
+  events: [],
+  status_distribution: {
+    focused_listening: 0,
+    focused_reading: 0,
+    not_focused_head_down: 0,
+    not_focused_looking: 0,
+    not_focused_sleeping: 0,
+    normal: 0
+  }
+})
+
+const trendData = ref([])
+
+const reportData = reactive({
+  attendance: 0,
+  avg_focus: 0,
+  low_focus_times: []
+})
+
+const chartSegments = computed(() => {
+  const dist = stats.status_distribution || {}
+  return [
+    { name: '专心听课', value: dist.focused_listening || 0, color: '#10b981' },
+    { name: '低头状态', value: (dist.focused_reading || 0) + (dist.not_focused_head_down || 0) + (dist.normal || 0), color: '#3b82f6' },
+    { name: '开小差', value: dist.not_focused_looking || 0, color: '#f59e0b' },
+    { name: '疑似睡觉', value: dist.not_focused_sleeping || 0, color: '#f43f5e' }
+  ]
+})
+
+const getSegmentStyle = (item, index) => {
+  const total = chartSegments.value.reduce((sum, s) => sum + s.value, 0)
+  if (total === 0) return {}
+  
+  let cumulativePercent = 0
+  for (let i = 0; i < index; i++) {
+    cumulativePercent += (chartSegments.value[i].value / total) * 100
+  }
+  const percent = (item.value / total) * 100
+  return {
+    background: `conic-gradient(transparent 0%, transparent ${cumulativePercent}%, ${item.color} ${cumulativePercent}%, ${item.color} ${cumulativePercent + percent}%, transparent ${cumulativePercent + percent}%, transparent 100%)`
+  }
+}
+
+const getTrendHeight = (value) => {
+  return Math.max(10, Math.min(100, value))
+}
+
+const connectWebSocket = () => {
+  // 1. 先清理可能存在的旧连接，防止多开阻塞线程
+  if (socketTask) {
+    try { socketTask.close() } catch(e) {}
+    socketTask = null
+  }
+
+  const wsUrl = `ws://${serverConfig.ip}:${serverConfig.port}/ws`
+  
+  // 2. 建立新连接（传入 complete 保证能同步返回任务实例）
+  socketTask = uni.connectSocket({
+    url: wsUrl,
+    complete: () => {} 
+  })
+
+  // 如果创建实例失败（比如环境限制或者URL极度异常），安全退出并尝试重连
+  if (!socketTask) {
+    scheduleReconnect()
+    return
+  }
+
+  // 3. 核心修复：将全局的 uni.onSocketX 全部替换为实例监听
+  socketTask.onOpen(() => {
+    console.log('WebSocket 连接成功')
+    isConnected.value = true
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+  })
+
+  socketTask.onMessage((res) => {
+    try {
+      const data = JSON.parse(res.data)
+      updateDashboard(data)
+    } catch (e) {
+      console.error('数据解析失败:', e)
+    }
+  })
+
+  socketTask.onClose(() => {
+    console.log('WebSocket 断开连接')
+    isConnected.value = false
+    scheduleReconnect()
+  })
+
+  socketTask.onError((err) => {
+    // 这里就算 IP 写错报错了，也不会阻塞主渲染线程了
+    console.error('WebSocket 连接异常')
+    isConnected.value = false
+  })
+}
+
+const scheduleReconnect = () => {
+  if (reconnectTimer) return
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    connectWebSocket()
+  }, 3000)
+}
+
+const updateDashboard = (data) => {
+  if (data.focus_rate !== undefined) stats.focus_rate = Math.round(data.focus_rate)
+  if (data.total_students !== undefined) stats.total_students = data.total_students
+  if (data.warning_count !== undefined) stats.warning_count = data.warning_count
+  if (data.active_count !== undefined) stats.active_count = data.active_count
+  if (data.status_distribution) stats.status_distribution = data.status_distribution
+  if (data.events && data.events.length > 0) {
+    stats.events = data.events
+    scrollTop.value = 999999
+  }
+}
+
+const updateTrendData = (focusRate) => {
+  const now = new Date()
+  const timeLabel = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`
+  
+  trendData.value.push({ time: timeLabel, value: focusRate })
+  if (trendData.value.length > 8) trendData.value.shift()
+}
+
+const stopMonitor = () => {
+  uni.showModal({
+    title: '确认结束',
+    content: '确定要结束本次课堂监控并关闭系统吗？',
+    success: (res) => {
+      if (res.confirm) doStopMonitor()
+    }
+  })
+}
+
+const doStopMonitor = async () => {
+  uni.showLoading({ title: '正在关闭...' })
+  
+  try {
+    const response = await new Promise((resolve, reject) => {
+      uni.request({
+        url: `http://${serverConfig.ip}:${serverConfig.port}/api/stop`,
+        method: 'POST',
+        success: (res) => resolve(res),
+        fail: (err) => reject(err)
+      })
+    })
+    
+    uni.hideLoading()
+    
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+    if (trendTimer) {
+      clearInterval(trendTimer)
+      trendTimer = null
+    }
+    if (socketTask) {
+      socketTask.close()
+      socketTask = null
+    }
+    
+    reportData.attendance = response.data.attendance || 0
+    reportData.avg_focus = response.data.avg_focus || 0
+    reportData.low_focus_times = response.data.low_focus_times || []
+    
+    showReport.value = true
+    
+  } catch (error) {
+    uni.hideLoading()
+    uni.showToast({ title: '关闭请求发送失败', icon: 'none' })
+  }
+}
+
+const closeReport = () => showReport.value = false
+
+const showServerConfig = () => {
+  uni.navigateTo({ url: '/pages/config/config' })
+}
+
+onPullDownRefresh(() => {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  if (socketTask) {
+    socketTask.close()
+    socketTask = null
+  }
+  isConnected.value = false
+  connectWebSocket()
+  
+  setTimeout(() => {
+    uni.stopPullDownRefresh()
+    uni.showToast({ title: '刷新完成', icon: 'none' })
+  }, 1000)
+})
+
+onMounted(() => {
+  const savedIp = uni.getStorageSync('server_ip')
+  const savedPort = uni.getStorageSync('server_port')
+  if (savedIp) serverConfig.ip = savedIp
+  if (savedPort) serverConfig.port = savedPort
+  
+  connectWebSocket()
+
+  trendTimer = setInterval(() => {
+    if (isConnected.value) updateTrendData(stats.focus_rate)
+  }, 5000)
+})
+
+// 核心修复：使用 onShow 替代原先的 uni.$on('updateServerConfig')
+onShow(() => {
+  const savedIp = uni.getStorageSync('server_ip')
+  const savedPort = uni.getStorageSync('server_port')
+  
+  let configChanged = false
+  if (savedIp && savedIp !== serverConfig.ip) {
+    serverConfig.ip = savedIp
+    configChanged = true
+  }
+  if (savedPort && savedPort !== serverConfig.port) {
+    serverConfig.port = savedPort
+    configChanged = true
+  }
+  
+  // 仅在配置发生变化时，才静默重连
+  if (configChanged) {
+    console.log('检测到配置变更，正在重新连接...')
+    connectWebSocket()
+  }
+})
+
+onUnmounted(() => {
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  if (trendTimer) clearInterval(trendTimer)
+  if (socketTask) socketTask.close()
+})
+</script>
+
+<style scoped>
+.header, .data-card, .chart-section, .event-log-section {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.app-container {
+  padding: 24rpx;
+  padding-bottom: 24rpx;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(14, 165, 233, 0.08);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.status-dot {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-dot-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.75;
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.bg-emerald {
+  background-color: #10b981;
+}
+
+.bg-rose {
+  background-color: #f43f5e;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.status-text {
+  font-size: 28rpx;
+  color: #64748b;
+}
+
+.btn-stop {
+  border-radius: 40rpx;
+  padding: 16rpx 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin: 0;
+}
+
+.btn-text {
+  font-size: 28rpx;
+  color: #e11d48;
+  font-weight: 500;
+}
+
+.grid-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+  width: 100%;
+}
+
+.data-card {
+  width: calc(50% - 10rpx);
+  padding: 28rpx;
+  border-radius: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8rpx 32rpx rgba(14, 165, 233, 0.05);
+}
+
+.card-content {
+  flex: 1;
+}
+
+.label {
+  font-size: 24rpx;
+  color: #64748b;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+
+.value {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.unit {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.card-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+}
+
+.card-emoji {
+  font-size: 40rpx;
+}
+
+.bg-brand-light { background: rgba(14, 165, 233, 0.1); }
+.bg-indigo-light { background: rgba(99, 102, 241, 0.1); }
+.bg-rose-light { background: rgba(244, 63, 94, 0.1); }
+.bg-emerald-light { background: rgba(16, 185, 129, 0.1); }
+
+.text-brand-icon { color: #0ea5e9; }
+.text-indigo-icon { color: #6366f1; }
+.text-rose-icon { color: #f43f5e; }
+.text-emerald-icon { color: #10b981; }
+
+.iconfont {
+  font-family: "iconfont";
+}
+
+.chart-section {
+  padding: 28rpx;
+  border-radius: 24rpx;
+  margin-bottom: 24rpx;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8rpx 32rpx rgba(14, 165, 233, 0.05);
+}
+
+.section-header {
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.chart-container {
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.ring-chart {
+  width: 200rpx;
+  height: 200rpx;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ring-center {
+  position: absolute;
+  inset: 30rpx;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.ring-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.ring-label {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.ring-segments {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.ring-segment {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.chart-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.legend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 24rpx;
+  color: #64748b;
+  flex: 1;
+}
+
+.legend-value {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.trend-chart {
+  display: flex;
+  gap: 16rpx;
+  height: 280rpx;
+}
+
+.trend-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8rpx 0;
+}
+
+.y-label {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.trend-area {
+  flex: 1;
+  position: relative;
+}
+
+.trend-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8rpx 0;
+}
+
+.grid-line {
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.trend-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  padding: 8rpx 0;
+  gap: 8rpx;
+}
+
+.trend-bar-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.trend-bar {
+  width: 100%;
+  max-width: 40rpx;
+  background: linear-gradient(180deg, #0ea5e9 0%, rgba(14, 165, 233, 0.3) 100%);
+  border-radius: 8rpx 8rpx 0 0;
+  margin-top: auto;
+  min-height: 8rpx;
+}
+
+.trend-bar.bar-warning {
+  background: linear-gradient(180deg, #f43f5e 0%, rgba(244, 63, 94, 0.3) 100%);
+}
+
+.trend-time {
+  font-size: 18rpx;
+  color: #94a3b8;
+  margin-top: 8rpx;
+}
+
+.event-log-section {
+  padding: 28rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8rpx 32rpx rgba(14, 165, 233, 0.05);
+}
+
+.log-list {
+  height: 400rpx;
+}
+
+.log-item {
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.log-item:last-child {
+  border-bottom: none;
+}
+
+.log-line {
+  width: 6rpx;
+  border-radius: 3rpx;
+  flex-shrink: 0;
+}
+
+.log-line-warning { background: #f43f5e; }
+.log-line-info { background: #10b981; }
+.log-line-alert { background: #f59e0b; }
+
+.log-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.log-time {
+  font-size: 22rpx;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.log-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #334155;
+}
+
+.log-desc {
+  font-size: 24rpx;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.log-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200rpx;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #94a3b8;
+}
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 110rpx;
+  box-sizing: content-box; 
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  border-top: 1rpx solid #f1f5f9;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -4rpx 32rpx rgba(14, 165, 233, 0.06);
+  z-index: 100;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  position: relative;
+}
+
+.tab-text {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 2rpx;
+  transition: all 0.3s ease;
+}
+
+.tab-item.active .tab-text {
+  color: #0ea5e9;
+  font-size: 36rpx;
+  font-weight: 600;
+  transform: translateY(-4rpx);
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 12rpx;
+  width: 32rpx;
+  height: 6rpx;
+  border-radius: 4rpx;
+  background: #0ea5e9;
+  box-shadow: 0 2rpx 8rpx rgba(14, 165, 233, 0.4);
+}
+
+.report-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+}
+
+.report-content {
+  width: 100%;
+  max-width: 640rpx;
+  background: white;
+  border-radius: 32rpx;
+  overflow: hidden;
+  box-shadow: 0 32rpx 64rpx rgba(0, 0, 0, 0.2);
+}
+
+.report-header {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  padding: 48rpx;
+  text-align: center;
+  color: white;
+}
+
+.report-icon {
+  font-size: 80rpx;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.report-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.report-subtitle {
+  font-size: 24rpx;
+  opacity: 0.8;
+}
+
+.report-body {
+  padding: 32rpx;
+}
+
+.report-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.report-item.column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.report-item-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.report-item-icon {
+  font-size: 36rpx;
+}
+
+.report-item-label {
+  font-size: 28rpx;
+  color: #64748b;
+}
+
+.report-item-value {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.low-focus-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  width: 100%;
+}
+
+.time-tag {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12rpx;
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: #e11d48;
+}
+
+.no-warning {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  width: 100%;
+  text-align: center;
+}
+
+.no-warning text {
+  font-size: 26rpx;
+  color: #10b981;
+}
+
+.report-footer {
+  padding: 24rpx;
+  background: #f8fafc;
+  text-align: center;
+  border-top: 1px solid #e2e8f0;
+}
+
+.footer-text {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+</style>

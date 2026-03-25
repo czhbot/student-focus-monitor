@@ -108,8 +108,9 @@ def check_openvino_model():
     
     try:
         from ultralytics import YOLO
-        model = YOLO("yolo11s-pose.pt")
-        model.export(format="openvino", half=True)
+        model_path = root / "yolo11s-pose.pt"
+        model = YOLO(str(model_path))
+        model.export(format="openvino", half=True, project=str(root))
         print("OpenVINO 模型导出成功!")
         return True
     except Exception as e:

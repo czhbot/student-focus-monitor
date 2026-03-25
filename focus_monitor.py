@@ -699,15 +699,20 @@ class OpenVINOStudentDetector:
         print("模型加载完成!")
     
     def _ensure_openvino_model(self, model_name: str) -> str:
+        project_root = os.path.dirname(os.path.abspath(__file__))
         base_name = model_name.replace(".pt", "")
-        ov_model_dir = f"{base_name}_openvino_model"
+        ov_model_dir = os.path.join(project_root, f"{base_name}_openvino_model")
         
         if os.path.exists(ov_model_dir):
             return ov_model_dir
         
-        print(f"正在导出 OpenVINO 模型: {model_name}...")
-        temp_model = YOLO(model_name)
-        temp_model.export(format="openvino", half=True)
+        model_path = os.path.join(project_root, model_name)
+        if not os.path.exists(model_path):
+            model_path = model_name
+        
+        print(f"正在导出 OpenVINO 模型: {model_path}...")
+        temp_model = YOLO(model_path)
+        temp_model.export(format="openvino", half=True, project=project_root)
         
         return ov_model_dir
     
