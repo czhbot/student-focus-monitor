@@ -154,15 +154,6 @@
       </scroll-view>
     </view>
 
-    <view class="bottom-tab-bar">
-      <view class="tab-item active">
-        <text class="tab-text">监控</text>
-      </view>
-      <view class="tab-item" @click="showServerConfig">
-        <text class="tab-text">配置</text>
-      </view>
-    </view>
-
     <view class="report-modal" v-if="showReport" @click="closeReport">
       <view class="report-content" @click.stop>
         <view class="report-header">
@@ -413,10 +404,6 @@ const doStopMonitor = async () => {
 
 const closeReport = () => showReport.value = false
 
-const showServerConfig = () => {
-  uni.navigateTo({ url: '/pages/config/config' })
-}
-
 onPullDownRefresh(() => {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer)
@@ -557,16 +544,15 @@ onUnmounted(() => {
 }
 
 .grid-container {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 20rpx;
   margin-bottom: 24rpx;
   width: 100%;
 }
 
 .data-card {
-  width: calc(50% - 10rpx);
+  width: 100%;
   padding: 28rpx;
   border-radius: 24rpx;
   display: flex;
@@ -877,60 +863,6 @@ onUnmounted(() => {
 .empty-text {
   font-size: 26rpx;
   color: #94a3b8;
-}
-
-.bottom-tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 110rpx;
-  box-sizing: content-box; 
-  padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(10px);
-  border-top: 1rpx solid #f1f5f9;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  box-shadow: 0 -4rpx 32rpx rgba(14, 165, 233, 0.06);
-  z-index: 100;
-}
-
-.tab-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  position: relative;
-}
-
-.tab-text {
-  font-size: 32rpx;
-  font-weight: 500;
-  color: #94a3b8;
-  letter-spacing: 2rpx;
-  transition: all 0.3s ease;
-}
-
-.tab-item.active .tab-text {
-  color: #0ea5e9;
-  font-size: 36rpx;
-  font-weight: 600;
-  transform: translateY(-4rpx);
-}
-
-.tab-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: 12rpx;
-  width: 32rpx;
-  height: 6rpx;
-  border-radius: 4rpx;
-  background: #0ea5e9;
-  box-shadow: 0 2rpx 8rpx rgba(14, 165, 233, 0.4);
 }
 
 .report-modal {
